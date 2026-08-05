@@ -40,15 +40,15 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Publish coverage to Gist
-        if: always()
-        uses: actions/gist@v1.0.2
-        with:
-          action: update
-          gist_id: ${{secrets.GIST_ID}}
-          file_name: coverage-report.md
-          content: |
-            ## Coverage Report
-            ```
-            $(cat coverage.out)
-            ```
+      # - name: Publish coverage to Gist
+      #   if: always()
+      #   uses: actions/gist@v1.0.2
+      #   with:
+      #     action: update
+      #     gist_id: ${{secrets.GIST_ID}}
+      #     file_name: coverage-report.md
+      #     content: |
+      #       ## Coverage Report
+      #       ```
+      #       $(cat coverage.out)
+      #       ```
