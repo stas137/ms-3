@@ -30,8 +30,10 @@ jobs:
               run: | 
                 (
                     echo "## Build start"
-                    echo ""
+                    echo "==="
                     echo $PWD
+                    ls
+                    echo "==="
                     echo "## Build end"
                     task build
                 )
