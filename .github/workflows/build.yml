@@ -27,4 +27,11 @@ jobs:
               run: go install github.com/go-task/task/v3/cmd/task@v3.50.0           # version
             
             - name: Build
-              run: task build
+              run: | 
+                (
+                    echo "## Build start"
+                    echo ""
+                    echo $PWD
+                    echo "## Build end"
+                    task build
+                )
