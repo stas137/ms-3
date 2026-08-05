@@ -309,6 +309,7 @@ tasks:
           echo "Не найдено пакетов для тестирования" >&2
           exit 1
         fi
+      - echo "=== $PWD ==="
       - echo "📊 Покрытие по функциям:"
       - go tool cover -func={{.COVERAGE_FILE}}
       - task: coverage:threshold
