@@ -9,17 +9,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// func AssertGRPCStatus(t *testing.T, err error, code codes.Code) bool {
-// 	codeFromStatus, ok := status.FromError(err)
-// 	if !ok {
-// 		return false
-// 	}
-// 	if codeFromStatus.Code() == code {
-// 		return true
-// 	}
-// 	return false
-// }
-
 // AssertGRPCStatus проверяет, что ошибка является gRPC ошибкой с указанным кодом
 func AssertGRPCStatus(t *testing.T, err error, expectedCode codes.Code) {
 	t.Helper()
