@@ -34,6 +34,7 @@ jobs:
                     echo $PWD
                     ls
                     echo "==="
-                    echo "## Build end"
                     task build
+                    echo "==="
+                    echo "## Build end"
                 )

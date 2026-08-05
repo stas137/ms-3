@@ -91,7 +91,17 @@ tasks:
   build:
     desc: "Собирает все Go-модули (go build)"
     cmds:
-      - go build ./order/... ./inventory/... ./payment/...
+      - |
+        for mod in order inventory payment; do
+        (
+          echo $PWD
+          cd "$mod"
+          echo $PWD
+          go build ./...
+          cd ..
+        )
+        done
+        # - go build ./order/... ./inventory/... ./payment/...
 
   lint:
     desc: "Запускает golangci-lint"
