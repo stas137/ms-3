@@ -32,7 +32,6 @@ jobs:
                     echo "## Build start"
                     echo "==="
                     echo $PWD
-                    ls
                     echo "==="
                     task build
                     echo "==="
