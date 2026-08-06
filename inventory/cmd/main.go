@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -14,8 +13,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
-	inventoryService "github.com/stas137/ms-3/inventory/pkg/service"
-	inventoryv1 "github.com/stas137/ms-3/shared/pkg/proto/inventory/v1"
+	"github.com/stas137/ms-3/inventory/pkg/app"
 )
 
 const (
@@ -68,7 +66,9 @@ func run() error {
 		}),
 	)
 
-	inventoryv1.RegisterInventoryServiceServer(grpcServer, inventoryService.NewServer())
+	// inventoryv1.RegisterInventoryServiceServer(grpcServer, inventoryService.NewServer())
+	// inventoryv1.RegisterInventoryServiceServer(grpcServer, app.NewServer())
+	app.RegisterServices(grpcServer)
 
 	// Включаем reflection для postman/grpcurl
 	reflection.Register(grpcServer)
@@ -100,15 +100,16 @@ func run() error {
 	ctx, cancel = signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	var wg sync.WaitGroup
+	// var wg sync.WaitGroup
 
-	wg.Go(func() {
-		for range ctx.Done() {
-			return
-		}
-	})
-	wg.Wait()
+	// wg.Go(func() {
+	// 	for range ctx.Done() {
+	// 		return
+	// 	}
+	// })
+	// wg.Wait()
 
+	<-ctx.Done()
 	slog.Info("остановка gRPC сервера")
 	grpcServer.GracefulStop()
 	slog.Info("сервер остановлен")
