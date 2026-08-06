@@ -40,13 +40,14 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Get the Numbers of Coverage
+      - name: Get the numbers of coverage
+        if: success()
         run: | 
-          {
             COVERAGE=$(go tool cover -func=coverage/coverage.out | tail -n1 | awk '{print $NF}' | tr -d '%')
-            echo "$COVERAGE"
-          } >> "$GITHUB_ENV"
-      - name: Create the Badge
+            echo "COVERAGE=${COVERAGE}" >> "$GITHUB_ENV"
+
+      - name: Create the badge
+        if: success()
         uses: schneegans/dynamic-badges-action@v1.9.0
         with:
           auth: ${{ secrets.GIST_SECRET }}
