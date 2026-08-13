@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
@@ -28,7 +30,7 @@ const (
 
 func main() {
 	if err := run(); err != nil {
-		slog.Error("не удалось создать listener", "error", err)
+		slog.Error("не удалось создать listener / connection to db", "error", err)
 		os.Exit(1)
 	}
 
@@ -42,6 +44,11 @@ func main() {
 func run() error {
 	ctx, cancel := context.WithTimeout(context.Background(), grpcMaxConnectionAge)
 	defer cancel()
+
+	err := godotenv.Load("../inventory.env")
+	if err != nil {
+		return err
+	}
 
 	lis, err := (*net.ListenConfig).Listen(&net.ListenConfig{}, ctx, "tcp", string(grpcAddress))
 	// lis, err := net.Listen("tcp", grpcAddress)
@@ -68,7 +75,20 @@ func run() error {
 
 	// inventoryv1.RegisterInventoryServiceServer(grpcServer, inventoryService.NewServer())
 	// inventoryv1.RegisterInventoryServiceServer(grpcServer, app.NewServer())
-	app.RegisterServices(grpcServer)
+	dbURI := os.Getenv("DB_URI")
+
+	pool, err := pgxpool.New(ctx, dbURI)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	err = pool.Ping(ctx)
+	if err != nil {
+		return err
+	}
+
+	app.RegisterServices(grpcServer, pool)
 
 	// Включаем reflection для postman/grpcurl
 	reflection.Register(grpcServer)
@@ -99,15 +119,6 @@ func run() error {
 
 	ctx, cancel = signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
-
-	// var wg sync.WaitGroup
-
-	// wg.Go(func() {
-	// 	for range ctx.Done() {
-	// 		return
-	// 	}
-	// })
-	// wg.Wait()
 
 	<-ctx.Done()
 	slog.Info("остановка gRPC сервера")

@@ -8,20 +8,18 @@ import (
 
 // Order представляет заказ на постройку космического корабля
 type Order struct {
-	OrderUUID       uuid.UUID
-	EngineUUID      uuid.UUID
-	HullUUID        uuid.UUID
-	ShieldUUID      *uuid.UUID // опциональный
-	WeaponUUID      *uuid.UUID // опциональный
-	EnginePrice     int64
-	HullPrice       int64
-	ShieldPrice     *int64
-	WeaponPrice     *int64
-	TotalPrice      int64 // в копейках
-	TransactionUUID *uuid.UUID
-	PaymentMethod   *string
-	Status          string
-	CreatedAt       time.Time
-	UpdatedAt       *time.Time
-	DeletedAt       *time.Time
+	UUID            uuid.UUID  `db:"uuid"`
+	Status          string     `db:"status"`
+	TransactionUUID *uuid.UUID `db:"transaction_uuid"`
+	PaymentMethod   *string    `db:"payment_method"`
+	CreatedAt       time.Time  `db:"created_at"`
+	UpdatedAt       *time.Time `db:"updated_at"`
+	DeletedAt       *time.Time `db:"deleted_at"`
+}
+
+type OrderItem struct {
+	OrderUUID uuid.UUID `db:"order_uuid"`
+	PartUUID  uuid.UUID `db:"part_uuid"`
+	PartType  string    `db:"part_type"`
+	Price     int64     `db:"price"`
 }
