@@ -1,10 +1,16 @@
 package app
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
+	trmpgx "github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2"
+	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
@@ -25,8 +31,31 @@ const (
 )
 
 func NewServer() *orderv1.Server {
-	// Создаём хранилище
-	orderRepo := orderRepository.NewRepository()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := godotenv.Load("../inventory.env")
+	if err != nil {
+		slog.Error("ошибка godotenv", "error", err)
+	}
+
+	dbURI := os.Getenv("DB_URI")
+
+	orderPool, err := pgxpool.New(ctx, dbURI)
+	if err != nil {
+		slog.Error("ошибка pool", "error", err)
+	}
+	defer orderPool.Close()
+
+	err = orderPool.Ping(ctx)
+	if err != nil {
+		slog.Error("ошибка pool ping", "error", err)
+	}
+
+	txManager, err := manager.New(trmpgx.NewDefaultFactory(orderPool))
+	if err != nil {
+		slog.Error("ошибка txManager", "error", err)
+	}
 
 	inventoryConn, err := grpc.NewClient(inventoryServiceAddress,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -66,6 +95,8 @@ func NewServer() *orderv1.Server {
 		}
 	}()
 
+	// Создаём хранилище
+	orderRepo := orderRepository.NewRepository(orderPool, txManager)
 	orderInventoryClient := inventoryClient.New(inventoryv1.NewInventoryServiceClient(inventoryConn))
 	orderPaymentClient := paymentClient.New(paymentv1.NewPaymentServiceClient(paymentConn))
 	orderServ := orderService.NewService(orderRepo, orderInventoryClient, orderPaymentClient)
@@ -98,6 +129,8 @@ func NewServer() *orderv1.Server {
 }
 
 func NewHTTPHandler(
+	orderPool *pgxpool.Pool,
+	txManager *manager.Manager,
 	inventoryServiceClient inventoryv1.InventoryServiceClient,
 	paymentServiceClient paymentv1.PaymentServiceClient,
 ) (http.Handler, error) {
@@ -105,7 +138,7 @@ func NewHTTPHandler(
 	orderPaymentClient := paymentClient.New(paymentServiceClient)
 
 	// Создаём хранилище
-	orderRepo := orderRepository.NewRepository()
+	orderRepo := orderRepository.NewRepository(orderPool, txManager)
 	orderServ := orderService.NewService(orderRepo, orderInventoryClient, orderPaymentClient)
 	orderApi := orderv1API.NewApi(orderServ)
 
