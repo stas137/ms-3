@@ -46,13 +46,14 @@ func (s *service) Create(ctx context.Context, in input.CreateOrderInput) (model.
 		uuids = append(uuids, in.ShieldUUID.String())
 	}
 
+	// inventory service
 	listParts, err := s.inventoryClient.ListParts(
 		ctx,
 		uuids,
 	)
 	if err != nil {
 		if errors.Is(err, errs.ErrPartNotFound) {
-			// listParts = defaultParts // defaultParst
+			// listParts = defaultParts // defaultParts
 			return model.Order{}, fmt.Errorf("создать заказ: (деталь не найдена): %w", err)
 		} else {
 			return model.Order{}, fmt.Errorf("создать заказ (получить детали): %w", err)
@@ -65,6 +66,24 @@ func (s *service) Create(ctx context.Context, in input.CreateOrderInput) (model.
 		}
 	}
 
+	hullUUID := in.HullUUID.String()
+	engineUUID := in.EngineUUID.String()
+
+	var shieldUUID string
+	if in.ShieldUUID != nil {
+		shieldUUID = in.ShieldUUID.String()
+	}
+
+	var weaponUUID string
+	if in.WeaponUUID != nil {
+		weaponUUID = in.WeaponUUID.String()
+	}
+
+	err = s.inventoryClient.ValidateCompatibility(ctx, hullUUID, engineUUID, shieldUUID, weaponUUID)
+	if err != nil {
+		return model.Order{}, fmt.Errorf("создать заказ: validate compatibility %w", err)
+	}
+
 	orderUUID := uuid.New()
 	createOrder := model.Order{
 		UUID:      orderUUID,
@@ -73,7 +92,12 @@ func (s *service) Create(ctx context.Context, in input.CreateOrderInput) (model.
 		CreatedAt: time.Now(),
 	}
 
-	err = s.orderRepo.Create(ctx, createOrder)
+	err = s.inventoryClient.ReserveParts(ctx, []string{hullUUID, engineUUID, shieldUUID, weaponUUID})
+	if err != nil {
+		return model.Order{}, fmt.Errorf("cоздать заказ: зарезервировать детали: %w", err)
+	}
+
+	err = s.orderRepo.Create(ctx, createOrder, getOrderItems(listParts))
 	if err != nil {
 		return model.Order{}, fmt.Errorf("создать заказ: %w", err)
 	}

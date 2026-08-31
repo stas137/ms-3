@@ -30,6 +30,22 @@ func (s *service) Cancel(ctx context.Context, orderUUID uuid.UUID) error {
 
 	// applyUpdate(&order, updateOrder)
 
+	uuids := []string{
+		order.GetHullUUID().String(),
+		order.GetEngineUUID().String(),
+	}
+	if order.GetShieldUUID() != nil {
+		uuids = append(uuids, order.GetShieldUUID().String())
+	}
+	if order.GetWeaponUUID() != nil {
+		uuids = append(uuids, order.GetWeaponUUID().String())
+	}
+
+	err = s.inventoryClient.ReleaseParts(ctx, uuids)
+	if err != nil {
+		return fmt.Errorf("отменить заказ: отменить резерв деталей: %w", err)
+	}
+
 	order.Status = model.OrderStatusCancelled
 	order.UpdatedAt = new(time.Now())
 

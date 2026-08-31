@@ -18,9 +18,11 @@ func (a *api) ListParts(ctx context.Context, req *inventoryv1.ListPartsRequest) 
 		return &inventoryv1.ListPartsResponse{}, err
 	}
 
+	partType := converter.PartTypeToModelPartType(req.GetPartType())
+
 	parts, err := a.partService.List(ctx, input.PartFilter{
 		UUIDs:    partsUUIDs,
-		PartType: converter.PartTypeToModelPartType(req.GetPartType()),
+		PartType: partType,
 	})
 	if err != nil {
 		return &inventoryv1.ListPartsResponse{}, fmt.Errorf("получить детали: %w", err)

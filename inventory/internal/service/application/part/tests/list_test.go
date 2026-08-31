@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/stas137/ms-3/inventory/internal/model"
+	"github.com/stas137/ms-3/inventory/internal/service/application/part"
+	"github.com/stas137/ms-3/inventory/internal/service/application/part/mocks"
 	"github.com/stas137/ms-3/inventory/internal/service/input"
-	"github.com/stas137/ms-3/inventory/internal/service/part"
-	"github.com/stas137/ms-3/inventory/internal/service/part/mocks"
 )
 
 func TestList(t *testing.T) {
@@ -35,19 +35,22 @@ func TestList(t *testing.T) {
 		description   = gofakeit.Product().Description
 		price         = int64(gofakeit.Price(100, 100000))
 		partType      = model.PartTypeEngine
-		stockQuantity = int64(10)
+		stockQuantity = 10
+		reserved      = 5
 		createdAt     = time.Now()
 	)
 
-	modelPart := model.Part{
-		UUID:          fakeUUID,
-		Name:          name,
-		Description:   description,
-		Price:         price,
-		PartType:      partType,
-		StockQuantity: stockQuantity,
-		CreatedAt:     createdAt,
-	}
+	modelPart := model.RestorePart(
+		fakeUUID,
+		name,
+		description,
+		partType,
+		price,
+		stockQuantity,
+		reserved,
+		model.PartProperties{},
+		createdAt,
+	)
 
 	tests := []struct {
 		name      string
@@ -110,9 +113,11 @@ func TestList(t *testing.T) {
 			t.Parallel()
 
 			partRepository := mocks.NewPartRepository(t)
+			compabilityChecker := mocks.NewCompatibilityChecker(t)
+			txManager := mocks.NewTxManager(t)
 			tc.setupMock(partRepository)
 
-			svc := part.NewService(partRepository)
+			svc := part.NewService(partRepository, compabilityChecker, txManager)
 			res, err := svc.List(ctx, tc.args.filter)
 
 			if tc.expected.err != nil {

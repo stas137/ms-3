@@ -10,17 +10,17 @@ import (
 )
 
 func PartToDTO(part model.Part) *inventoryv1.Part {
-	inventoryv1PartTypeName := "PART_TYPE_" + string(part.PartType)
+	inventoryv1PartTypeName := "PART_TYPE_" + string(part.PartType())
 	inventoryv1PartType := inventoryv1.PartType_value[inventoryv1PartTypeName]
 
 	return &inventoryv1.Part{
-		Uuid:          part.UUID.String(),
-		Name:          part.Name,
-		Description:   part.Description,
-		Price:         part.Price,
+		Uuid:          part.UUID().String(),
+		Name:          part.Name(),
+		Description:   part.Description(),
+		Price:         part.Price(),
 		PartType:      inventoryv1.PartType(inventoryv1PartType),
-		StockQuantity: part.StockQuantity,
-		CreatedAt:     timestamppb.New(part.CreatedAt),
+		StockQuantity: int64(part.StockQuantity()),
+		CreatedAt:     timestamppb.New(part.CreatedAt()),
 	}
 }
 
@@ -56,13 +56,15 @@ func StringToUUID(s string) (uuid.UUID, error) {
 }
 
 func StringsToUUIDs(s []string) ([]uuid.UUID, error) {
-	partsUUID := make([]uuid.UUID, len(s))
-	for idx, partUUID := range s {
-		parsedUUID, err := uuid.Parse(partUUID)
-		if err != nil {
-			return nil, errs.ErrInvalidUUID
+	var partsUUID []uuid.UUID
+	for _, partUUID := range s {
+		if partUUID != "" {
+			parsedUUID, err := uuid.Parse(partUUID)
+			if err != nil {
+				return nil, errs.ErrInvalidUUID
+			}
+			partsUUID = append(partsUUID, parsedUUID)
 		}
-		partsUUID[idx] = parsedUUID
 	}
 	return partsUUID, nil
 }

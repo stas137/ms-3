@@ -16,6 +16,9 @@ func (a *api) CreateOrder(
 	orderv1.CreateOrderRes,
 	error,
 ) {
+	hullUUID := req.GetHullUUID()
+	engineUUID := req.GetEngineUUID()
+
 	var shieldUUID *uuid.UUID
 	if value, ok := req.ShieldUUID.Get(); ok {
 		shieldUUID = &value
@@ -26,8 +29,8 @@ func (a *api) CreateOrder(
 	}
 
 	order, err := a.orderService.Create(ctx, input.CreateOrderInput{
-		HullUUID:   req.HullUUID,
-		EngineUUID: req.EngineUUID,
+		HullUUID:   hullUUID,
+		EngineUUID: engineUUID,
 		ShieldUUID: shieldUUID,
 		WeaponUUID: weaponUUID,
 	})

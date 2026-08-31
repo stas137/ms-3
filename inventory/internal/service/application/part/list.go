@@ -14,5 +14,6 @@ func (s *service) List(ctx context.Context, filter input.PartFilter,
 	if err != nil {
 		return nil, fmt.Errorf("получить список деталей: %w", err)
 	}
+
 	return parts, nil
 }

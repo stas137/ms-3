@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"os"
 	"time"
 
 	trmpgx "github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2"
@@ -18,6 +17,7 @@ import (
 	orderv1API "github.com/stas137/ms-3/order/internal/api/order/v1"
 	inventoryClient "github.com/stas137/ms-3/order/internal/client/grpc/inventory/v1"
 	paymentClient "github.com/stas137/ms-3/order/internal/client/grpc/payment/v1"
+	"github.com/stas137/ms-3/order/internal/config"
 	orderRepository "github.com/stas137/ms-3/order/internal/repository/order"
 	orderService "github.com/stas137/ms-3/order/internal/service/order"
 	orderv1 "github.com/stas137/ms-3/shared/pkg/openapi/order/v1"
@@ -39,9 +39,12 @@ func NewServer() *orderv1.Server {
 		slog.Error("ошибка godotenv", "error", err)
 	}
 
-	dbURI := os.Getenv("DB_URI")
+	// dbURI := os.Getenv("DB_URI")
 
-	orderPool, err := pgxpool.New(ctx, dbURI)
+	configPath := config.ResolveConfigPath()
+	config.MustLoad(configPath)
+
+	orderPool, err := pgxpool.New(ctx, config.AppConfig().PG.DSN())
 	if err != nil {
 		slog.Error("ошибка pool", "error", err)
 	}
@@ -99,7 +102,7 @@ func NewServer() *orderv1.Server {
 	orderRepo := orderRepository.NewRepository(orderPool, txManager)
 	orderInventoryClient := inventoryClient.New(inventoryv1.NewInventoryServiceClient(inventoryConn))
 	orderPaymentClient := paymentClient.New(paymentv1.NewPaymentServiceClient(paymentConn))
-	orderServ := orderService.NewService(orderRepo, orderInventoryClient, orderPaymentClient)
+	orderServ := orderService.NewService(orderRepo, orderInventoryClient, orderPaymentClient, txManager)
 	orderApi := orderv1API.NewApi(orderServ)
 
 	// h := orderHandler.NewHandler(
@@ -139,7 +142,7 @@ func NewHTTPHandler(
 
 	// Создаём хранилище
 	orderRepo := orderRepository.NewRepository(orderPool, txManager)
-	orderServ := orderService.NewService(orderRepo, orderInventoryClient, orderPaymentClient)
+	orderServ := orderService.NewService(orderRepo, orderInventoryClient, orderPaymentClient, txManager)
 	orderApi := orderv1API.NewApi(orderServ)
 
 	return orderv1.NewServer(orderApi, orderv1.WithErrorHandler(orderv1API.ErrorHandler))

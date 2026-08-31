@@ -38,19 +38,22 @@ func TestList(t *testing.T) {
 		price             = int64(gofakeit.Price(100, 100000))
 		partType          = model.PartTypeEngine
 		partTypeInventory = inventoryv1.PartType_PART_TYPE_ENGINE
-		stockQuantity     = int64(10)
+		stockQuantity     = 10
+		reserved          = 10
 		createdAt         = time.Now()
 	)
 
-	modelPart := model.Part{
-		UUID:          fakeUUID,
-		Name:          name,
-		Description:   description,
-		Price:         price,
-		PartType:      partType,
-		StockQuantity: stockQuantity,
-		CreatedAt:     createdAt,
-	}
+	modelPart := model.RestorePart(
+		fakeUUID,
+		name,
+		description,
+		partType,
+		price,
+		stockQuantity,
+		reserved,
+		model.PartProperties{},
+		createdAt,
+	)
 
 	tests := []struct {
 		name      string

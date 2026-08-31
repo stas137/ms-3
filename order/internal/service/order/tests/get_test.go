@@ -94,8 +94,9 @@ func TestGet(t *testing.T) {
 
 			inventoryClient := mocks.NewInventoryClient(t)
 			paymentClient := mocks.NewPaymentClient(t)
+			txManager := mocks.NewTxManager(t)
 
-			svc := order.NewService(orderRepository, inventoryClient, paymentClient)
+			svc := order.NewService(orderRepository, inventoryClient, paymentClient, txManager)
 			res, err := svc.Get(ctx, tc.args.orderUUID)
 
 			if tc.expected.err != nil {

@@ -15,4 +15,8 @@ var (
 	// Ошибки валидации
 	ErrInvalidUUID          = errors.New("неверный формат UUID")
 	ErrInvalidPaymentMethod = errors.New("неверный метод оплаты")
+
+	// Детали ошибки
+	ErrIncompatibleParts = errors.New("детали несовместимы")
+	ErrPartTypeMismatch  = errors.New("тип детали не соответствует слоту корабля")
 )

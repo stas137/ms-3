@@ -91,18 +91,18 @@ func (r *repository) createOrder(ctx context.Context, order model.Order) error {
 	return nil
 }
 
-func (r *repository) createOrderItems(ctx context.Context, order model.Order) error {
-	if len(order.Items) == 0 {
+func (r *repository) createOrderItems(ctx context.Context, orderUUID uuid.UUID, items []model.OrderItem) error {
+	if len(items) == 0 {
 		return nil
 	}
 
-	items := repoConverter.ModelOrderItemsToRepoOrderItems(order)
+	// items := repoConverter.ModelOrderItemsToRepoOrderItems(order)
 
 	query := squirrel.Insert("order_items").Columns("order_uuid", "part_uuid", "part_type", "price").
 		PlaceholderFormat(squirrel.Dollar)
 
 	for _, item := range items {
-		query = query.Values(item.OrderUUID, item.PartUUID, item.PartType, item.Price)
+		query = query.Values(orderUUID, item.PartUUID, item.PartType, item.Price)
 	}
 
 	sql, args, err := query.ToSql()
@@ -170,12 +170,12 @@ func (r *repository) Get(ctx context.Context, orderUUID uuid.UUID) (model.Order,
 	return r.getOrder(ctx, orderUUID)
 }
 
-func (r *repository) Create(ctx context.Context, order model.Order) error {
+func (r *repository) Create(ctx context.Context, order model.Order, items []model.OrderItem) error {
 	return r.txManager.Do(ctx, func(txCtx context.Context) error {
 		if err := r.createOrder(txCtx, order); err != nil {
 			return err
 		}
-		return r.createOrderItems(txCtx, order)
+		return r.createOrderItems(txCtx, order.UUID, items)
 	})
 }
 

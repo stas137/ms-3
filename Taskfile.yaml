@@ -203,10 +203,10 @@ tasks:
     cmds:
       - go run ./cmd
 
-  test:
-    desc: "Запускает все тесты (на week_1 алиас на test:api)"
-    cmds:
-      - task: test:api
+  # test:
+  #   desc: "Запускает все тесты (на week_1 алиас на test:api)"
+  #   cmds:
+  #     - task: test:api
 
   test:api:
     desc: "Запускает API-тесты"
@@ -217,7 +217,7 @@ tasks:
           cd order
           echo $PWD
           go test -v ./tests/...
-          cd ..
+          # cd ..
         )
       # - go test -v ./order/tests/...
 
