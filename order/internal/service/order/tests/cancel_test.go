@@ -34,8 +34,12 @@ func TestCancel(t *testing.T) {
 		items    = []model.OrderItem{
 			{
 				PartUUID: uuid.MustParse(gofakeit.UUID()),
+				PartType: model.PartTypeHull,
+				Price:    int64(gofakeit.Price(100, 5000)),
+			}, {
+				PartUUID: uuid.MustParse(gofakeit.UUID()),
 				PartType: model.PartTypeEngine,
-				Price:    int64(gofakeit.Price(100, 100000)),
+				Price:    int64(gofakeit.Price(100, 10000)),
 			},
 		}
 		paymentMethod   = model.PaymentMethodCard
@@ -69,14 +73,15 @@ func TestCancel(t *testing.T) {
 	tests := []struct {
 		name      string
 		args      args
-		setupMock func(repo *mocks.OrderRepository)
+		setupMock func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient)
 		expected  expected
 	}{
 		{
 			name: "успешная отмена заказа",
 			args: args{orderUUID: fakeUUID},
-			setupMock: func(repo *mocks.OrderRepository) {
+			setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
 				repo.EXPECT().Get(ctx, fakeUUID).Return(modelOrder, nil)
+				inventoryClient.EXPECT().ReleaseParts(ctx, []string{modelOrder.Items[0].PartUUID.String(), modelOrder.Items[1].PartUUID.String()}).Return(nil)
 				repo.EXPECT().Update(ctx, mock.MatchedBy(func(modelOrder model.Order) bool {
 					return (modelOrder.UUID == fakeUUID &&
 						modelOrder.TransactionUUID == nil &&
@@ -92,7 +97,7 @@ func TestCancel(t *testing.T) {
 		{
 			name: "ошибка при отмене заказа (заказ уже отменен)",
 			args: args{orderUUID: fakeUUID},
-			setupMock: func(repo *mocks.OrderRepository) {
+			setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
 				repo.EXPECT().Get(ctx, fakeUUID).Return(model.Order{}, errs.ErrOrderCancelled)
 			},
 			expected: expected{
@@ -102,7 +107,7 @@ func TestCancel(t *testing.T) {
 		{
 			name: "ошибка при отмене заказа (заказ уже оплачен)",
 			args: args{orderUUID: fakeUUID},
-			setupMock: func(repo *mocks.OrderRepository) {
+			setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
 				repo.EXPECT().Get(ctx, fakeUUID).Return(model.Order{}, errs.ErrOrderAlreadyPaid)
 			},
 			expected: expected{
@@ -112,7 +117,7 @@ func TestCancel(t *testing.T) {
 		{
 			name: "ошибка при отмене заказа (заказ не найден)",
 			args: args{orderUUID: fakeUUID},
-			setupMock: func(repo *mocks.OrderRepository) {
+			setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
 				repo.EXPECT().Get(ctx, fakeUUID).Return(model.Order{}, errs.ErrOrderNotFound)
 			},
 			expected: expected{
@@ -122,8 +127,9 @@ func TestCancel(t *testing.T) {
 		{
 			name: "ошибка при отмене заказа (заказ не найден при обновлении)",
 			args: args{orderUUID: fakeUUID},
-			setupMock: func(repo *mocks.OrderRepository) {
+			setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
 				repo.EXPECT().Get(ctx, fakeUUID).Return(modelOrder, nil)
+				inventoryClient.On("ReleaseParts", ctx, []string{modelOrder.Items[0].PartUUID.String(), modelOrder.Items[1].PartUUID.String()}).Return(nil)
 				repo.EXPECT().Update(ctx, mock.MatchedBy(func(modelOrder model.Order) bool {
 					return (modelOrder.UUID == fakeUUID &&
 						modelOrder.TransactionUUID == nil &&
@@ -143,12 +149,14 @@ func TestCancel(t *testing.T) {
 			t.Parallel()
 
 			orderRepository := mocks.NewOrderRepository(t)
-			tc.setupMock(orderRepository)
-
 			inventoryClient := mocks.NewInventoryClient(t)
-			paymentClient := mocks.NewPaymentClient(t)
 
-			svc := order.NewService(orderRepository, inventoryClient, paymentClient)
+			paymentClient := mocks.NewPaymentClient(t)
+			txManager := mocks.NewTxManager(t)
+
+			tc.setupMock(orderRepository, inventoryClient)
+
+			svc := order.NewService(orderRepository, inventoryClient, paymentClient, txManager)
 			err := svc.Cancel(ctx, tc.args.orderUUID)
 
 			if tc.expected.err != nil {

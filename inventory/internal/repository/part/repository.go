@@ -26,7 +26,7 @@ func NewRepository(invPool *pgxpool.Pool) *repository {
 }
 
 func (r *repository) listByUUIDs(ctx context.Context, partsUUID []uuid.UUID) ([]model.Part, error) {
-	var partDTO record.Part
+	var partDTO record.PartRecord
 	var res []model.Part
 
 	query := `SELECT 
@@ -35,7 +35,9 @@ func (r *repository) listByUUIDs(ctx context.Context, partsUUID []uuid.UUID) ([]
 				description, 
 				part_type, 
 				price, 
-				stock_quantity, 
+				stock_quantity,
+				reserved,
+				properties,
 				created_at, 
 				updated_at
 			FROM parts 
@@ -50,6 +52,8 @@ func (r *repository) listByUUIDs(ctx context.Context, partsUUID []uuid.UUID) ([]
 			&partDTO.PartType,
 			&partDTO.Price,
 			&partDTO.StockQuantity,
+			&partDTO.Reserved,
+			&partDTO.Properties,
 			&partDTO.CreatedAt,
 			&partDTO.UpdatedAt,
 		)
@@ -59,7 +63,7 @@ func (r *repository) listByUUIDs(ctx context.Context, partsUUID []uuid.UUID) ([]
 			}
 			return nil, err
 		}
-		modelPart, err := converter.PartToModelPart(partDTO)
+		modelPart, err := converter.PartRecordToModelPart(partDTO)
 		if err != nil {
 			return nil, err
 		}
@@ -69,7 +73,7 @@ func (r *repository) listByUUIDs(ctx context.Context, partsUUID []uuid.UUID) ([]
 }
 
 func (r *repository) listByPartTypeUnspecified(ctx context.Context) ([]model.Part, error) {
-	var partDTO record.Part
+	var partDTO record.PartRecord
 	var res []model.Part
 
 	query := `SELECT 
@@ -78,7 +82,9 @@ func (r *repository) listByPartTypeUnspecified(ctx context.Context) ([]model.Par
 				description, 
 				part_type, 
 				price, 
-				stock_quantity, 
+				stock_quantity,
+				reserved,
+				properties,
 				created_at, 
 				updated_at 
 			FROM parts`
@@ -100,26 +106,28 @@ func (r *repository) listByPartTypeUnspecified(ctx context.Context) ([]model.Par
 			&partDTO.PartType,
 			&partDTO.Price,
 			&partDTO.StockQuantity,
+			&partDTO.Reserved,
+			&partDTO.Properties,
 			&partDTO.CreatedAt,
 			&partDTO.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
-		modelPart, err := converter.PartToModelPart(partDTO)
+		modelPart, err := converter.PartRecordToModelPart(partDTO)
 		if err != nil {
 			return nil, err
 		}
 		res = append(res, modelPart)
 	}
 	sort.Slice(res, func(i, j int) bool {
-		return res[i].Name < res[j].Name
+		return res[i].Name() < res[j].Name()
 	})
 	return res, nil
 }
 
 func (r *repository) listByPartType(ctx context.Context, partType model.PartType) ([]model.Part, error) {
-	var partDTO record.Part
+	var partDTO record.PartRecord
 	var res []model.Part
 
 	query := `
@@ -129,7 +137,9 @@ func (r *repository) listByPartType(ctx context.Context, partType model.PartType
 			description, 
 			part_type, 
 			price, 
-			stock_quantity, 
+			stock_quantity,
+			reserved,
+			properties,
 			created_at, 
 			updated_at 
 		FROM parts 
@@ -153,26 +163,28 @@ func (r *repository) listByPartType(ctx context.Context, partType model.PartType
 			&partDTO.PartType,
 			&partDTO.Price,
 			&partDTO.StockQuantity,
+			&partDTO.Reserved,
+			&partDTO.Properties,
 			&partDTO.CreatedAt,
 			&partDTO.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
-		modelPart, err := converter.PartToModelPart(partDTO)
+		modelPart, err := converter.PartRecordToModelPart(partDTO)
 		if err != nil {
 			return nil, err
 		}
 		res = append(res, modelPart)
 	}
 	sort.Slice(res, func(i, j int) bool {
-		return res[i].Name < res[j].Name
+		return res[i].Name() < res[j].Name()
 	})
 	return res, nil
 }
 
 func (r *repository) Get(ctx context.Context, partUUID uuid.UUID) (model.Part, error) {
-	var partDTO record.Part
+	var partDTO record.PartRecord
 	query := `
 		SELECT 
 			uuid, 
@@ -180,7 +192,9 @@ func (r *repository) Get(ctx context.Context, partUUID uuid.UUID) (model.Part, e
 			description, 
 			part_type, 
 			price, 
-			stock_quantity, 
+			stock_quantity,
+			reserved,
+			properties,
 			created_at, 
 			updated_at 
 		FROM parts 
@@ -193,13 +207,15 @@ func (r *repository) Get(ctx context.Context, partUUID uuid.UUID) (model.Part, e
 		&partDTO.PartType,
 		&partDTO.Price,
 		&partDTO.StockQuantity,
+		&partDTO.Reserved,
+		&partDTO.Properties,
 		&partDTO.CreatedAt,
 		&partDTO.UpdatedAt,
 	)
 	if err != nil {
 		return model.Part{}, errs.ErrPartNotFound
 	}
-	partModel, err := converter.PartToModelPart(partDTO)
+	partModel, err := converter.PartRecordToModelPart(partDTO)
 	if err != nil {
 		return model.Part{}, err
 	}
@@ -214,4 +230,29 @@ func (r *repository) List(ctx context.Context, partsUUID []uuid.UUID, partType m
 		return r.listByPartTypeUnspecified(ctx)
 	}
 	return r.listByPartType(ctx, partType)
+}
+
+func (r *repository) UpdateReservedBatch(ctx context.Context, parts []model.Part) error {
+	query := `
+	UPDATE parts AS p 
+	SET reserved = batch.reserved,
+		updated_at = NOW()
+	FROM unnest($1::uuid[], $2::int[]) as batch(uuid, reserved)
+	WHERE p.uuid = batch.uuid
+	`
+
+	uuids := make([]uuid.UUID, len(parts))
+	reservedVals := make([]int, len(parts))
+
+	for i, part := range parts {
+		uuids[i] = part.UUID()
+		reservedVals[i] = part.Reserved()
+	}
+
+	_, err := r.invPool.Exec(ctx, query, uuids, reservedVals)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -61,17 +61,17 @@ func TestCreate(t *testing.T) {
 	modelParts := []model.Part{
 		{
 			UUID:          uuid.New(),
-			Name:          "Engine",
-			PartType:      model.PartTypeEngine,
-			Price:         1000,
-			StockQuantity: 10,
-		},
-		{
-			UUID:          uuid.New(),
 			Name:          "Hull",
 			PartType:      model.PartTypeHull,
 			Price:         5000,
 			StockQuantity: 5,
+		},
+		{
+			UUID:          uuid.New(),
+			Name:          "Engine",
+			PartType:      model.PartTypeEngine,
+			Price:         1000,
+			StockQuantity: 10,
 		},
 	}
 
@@ -100,13 +100,18 @@ func TestCreate(t *testing.T) {
 				},
 			},
 			setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
-				inventoryClient.On("ListParts", ctx, []string{fakeUUID.String(), fakeUUID.String()}).Return(modelParts, nil)
-				repo.On("Create", ctx, mock.MatchedBy(func(modelOrderCreate model.Order) bool {
-					return (modelOrderCreate.UUID != uuid.Nil &&
-						// modelOrderCreate.CreatedAt != nil &&
-						modelOrderCreate.Status == statusPendingPayment &&
-						modelOrderCreate.TransactionUUID == nil)
-				})).Return(nil)
+				inventoryClient.EXPECT().ListParts(ctx, []string{fakeUUID.String(), fakeUUID.String()}).Return(modelParts, nil)
+				inventoryClient.On("ValidateCompatibility", ctx, fakeUUID.String(), fakeUUID.String(), "", "").Return(nil)
+				inventoryClient.On("ReserveParts", ctx, []string{fakeUUID.String(), fakeUUID.String(), "", ""}).Return(nil)
+				repo.EXPECT().Create(ctx,
+					mock.MatchedBy(func(modelOrderCreate model.Order) bool {
+						return (modelOrderCreate.UUID != uuid.Nil &&
+							// modelOrderCreate.CreatedAt !=  &&
+							modelOrderCreate.Status == statusPendingPayment &&
+							modelOrderCreate.TransactionUUID == nil)
+					}), mock.MatchedBy(func(items []model.OrderItem) bool {
+						return (len(items) == 2)
+					})).Return(nil)
 			},
 			expected: expected{
 				order: modelOrder,
@@ -114,7 +119,7 @@ func TestCreate(t *testing.T) {
 			},
 		},
 		{
-			name: "ошибка при создании заказа (неверный uuid)",
+			name: "ошибка при создании заказа (неверный engine uuid)",
 			args: args{input: input.CreateOrderInput{
 				HullUUID:   fakeUUID,
 				EngineUUID: uuid.Nil,
@@ -127,7 +132,7 @@ func TestCreate(t *testing.T) {
 			},
 		},
 		{
-			name: "ошибка при создании заказа (неверный uuid)",
+			name: "ошибка при создании заказа (неверный hull uuid)",
 			args: args{input: input.CreateOrderInput{
 				HullUUID:   uuid.Nil,
 				EngineUUID: fakeUUID,
@@ -188,11 +193,13 @@ func TestCreate(t *testing.T) {
 
 			orderRepository := mocks.NewOrderRepository(t)
 			inventoryClient := mocks.NewInventoryClient(t)
+
 			paymentClient := mocks.NewPaymentClient(t)
+			txManager := mocks.NewTxManager(t)
 
 			tc.setupMock(orderRepository, inventoryClient)
 
-			svc := order.NewService(orderRepository, inventoryClient, paymentClient)
+			svc := order.NewService(orderRepository, inventoryClient, paymentClient, txManager)
 			res, err := svc.Create(ctx, tc.args.input)
 
 			if tc.expected.err != nil {

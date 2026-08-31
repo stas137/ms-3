@@ -43,11 +43,11 @@ func mapError(err error) (int, string) {
 		return http.StatusNotFound, err.Error()
 
 	// 409 Conflict
-	case errors.Is(err, errs.ErrOrderAlreadyPaid), errors.Is(err, errs.ErrOrderCancelled), errors.Is(err, errs.ErrOutOfStock):
+	case errors.Is(err, errs.ErrOrderAlreadyPaid), errors.Is(err, errs.ErrOrderCancelled), errors.Is(err, errs.ErrOutOfStock), errors.Is(err, errs.ErrIncompatibleParts):
 		return http.StatusConflict, err.Error()
 
 	// 400 Bad Request
-	case errors.Is(err, errs.ErrInvalidUUID), errors.Is(err, errs.ErrInvalidPaymentMethod):
+	case errors.Is(err, errs.ErrInvalidUUID), errors.Is(err, errs.ErrInvalidPaymentMethod), errors.Is(err, errs.ErrPartTypeMismatch):
 		return http.StatusBadRequest, err.Error()
 
 	// 500 Internal server error

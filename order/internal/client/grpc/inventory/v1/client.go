@@ -43,3 +43,49 @@ func (c *client) ListParts(ctx context.Context, uuids []string) ([]model.Part, e
 
 	return modelParts, nil
 }
+
+func (c *client) ValidateCompatibility(ctx context.Context, hullUUID, engineUUID, shieldUUID, weaponUUID string) error {
+	_, err := c.inventoryClient.ValidateCompatibility(ctx, &inventoryv1.ValidateCompatibilityRequest{
+		HullUuid:   hullUUID,
+		EngineUuid: engineUUID,
+		ShieldUuid: shieldUUID,
+		WeaponUuid: weaponUUID,
+	})
+	if err != nil {
+		if st, ok := status.FromError(err); ok {
+			if st.Code() == codes.FailedPrecondition {
+				if st.Message() == "детали несовместимы" {
+					return errs.ErrIncompatibleParts
+				}
+			}
+			if st.Code() == codes.InvalidArgument {
+				if st.Message() == "тип детали не соответствует слоту корабля" {
+					return errs.ErrPartTypeMismatch
+				}
+			}
+		}
+		return fmt.Errorf("validate compatibility: %w", err)
+	}
+
+	return nil
+}
+
+func (c *client) ReserveParts(ctx context.Context, uuids []string) error {
+	_, err := c.inventoryClient.ReserveParts(ctx, &inventoryv1.ReservePartsRequest{
+		Uuids: uuids,
+	})
+	if err != nil {
+		return fmt.Errorf("зарезервировать детали: %w", err)
+	}
+	return nil
+}
+
+func (c *client) ReleaseParts(ctx context.Context, uuids []string) error {
+	_, err := c.inventoryClient.ReleaseParts(ctx, &inventoryv1.ReleasePartsRequest{
+		Uuids: uuids,
+	})
+	if err != nil {
+		return fmt.Errorf("отменить резерв деталей: %w", err)
+	}
+	return nil
+}

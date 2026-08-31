@@ -12,8 +12,8 @@ import (
 
 	errs "github.com/stas137/ms-3/inventory/internal/errors"
 	"github.com/stas137/ms-3/inventory/internal/model"
-	"github.com/stas137/ms-3/inventory/internal/service/part"
-	"github.com/stas137/ms-3/inventory/internal/service/part/mocks"
+	"github.com/stas137/ms-3/inventory/internal/service/application/part"
+	"github.com/stas137/ms-3/inventory/internal/service/application/part/mocks"
 )
 
 func TestGet(t *testing.T) {
@@ -35,19 +35,22 @@ func TestGet(t *testing.T) {
 		description   = gofakeit.Product().Description
 		price         = int64(gofakeit.Price(100, 100000))
 		partType      = model.PartTypeEngine
-		stockQuantity = int64(10)
+		stockQuantity = int(10)
+		reserved      = int(5)
 		createdAt     = time.Now()
 	)
 
-	modelPart := model.Part{
-		UUID:          fakeUUID,
-		Name:          name,
-		Description:   description,
-		Price:         price,
-		PartType:      partType,
-		StockQuantity: stockQuantity,
-		CreatedAt:     createdAt,
-	}
+	modelPart := model.RestorePart(
+		fakeUUID,
+		name,
+		description,
+		partType,
+		price,
+		stockQuantity,
+		reserved,
+		model.PartProperties{},
+		createdAt,
+	)
 
 	tests := []struct {
 		name      string
@@ -83,9 +86,12 @@ func TestGet(t *testing.T) {
 			t.Parallel()
 
 			partRepository := mocks.NewPartRepository(t)
+			compabilityChecker := mocks.NewCompatibilityChecker(t)
+			txManager := mocks.NewTxManager(t)
+
 			tc.setupMock(partRepository)
 
-			svc := part.NewService(partRepository)
+			svc := part.NewService(partRepository, compabilityChecker, txManager)
 			res, err := svc.Get(ctx, tc.args.argUUID)
 
 			if tc.expected.err != nil {
