@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	errs "github.com/stas137/ms-3/order/internal/errors"
 	"github.com/stas137/ms-3/order/internal/model"
 	"github.com/stas137/ms-3/order/internal/service/input"
 	"github.com/stas137/ms-3/order/internal/service/order"
@@ -60,29 +61,29 @@ func TestCreate(t *testing.T) {
 	modelParts := []model.Part{
 		{
 			UUID:          uuid.New(),
-			Name:          "Engine",
-			PartType:      model.PartTypeEngine,
-			Price:         1000,
-			StockQuantity: 10,
-		},
-		{
-			UUID:          uuid.New(),
 			Name:          "Hull",
 			PartType:      model.PartTypeHull,
 			Price:         5000,
 			StockQuantity: 5,
 		},
+		{
+			UUID:          uuid.New(),
+			Name:          "Engine",
+			PartType:      model.PartTypeEngine,
+			Price:         1000,
+			StockQuantity: 10,
+		},
 	}
 
-	// modelPartsOutOfStock := []model.Part{
-	// 	{
-	// 		UUID:          uuid.New(),
-	// 		Name:          "Engine",
-	// 		PartType:      model.PartTypeEngine,
-	// 		Price:         1050,
-	// 		StockQuantity: 0,
-	// 	},
-	// }
+	modelPartsOutOfStock := []model.Part{
+		{
+			UUID:          uuid.New(),
+			Name:          "Engine",
+			PartType:      model.PartTypeEngine,
+			Price:         1050,
+			StockQuantity: 0,
+		},
+	}
 
 	tests := []struct {
 		name      string
@@ -99,9 +100,9 @@ func TestCreate(t *testing.T) {
 				},
 			},
 			setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
-				inventoryClient.On("ListParts", ctx, []string{fakeUUID.String(), fakeUUID.String()}).Return(modelParts, nil)
-				inventoryClient.On("ValidateCompatibility", ctx, modelParts[0].UUID, modelParts[1].UUID, (*uuid.UUID)(nil), (*uuid.UUID)(nil)).Return(nil)
-				inventoryClient.On("ReserveParts", ctx, []uuid.UUID{modelParts[0].UUID, modelParts[1].UUID}).Return(nil)
+				inventoryClient.EXPECT().ListParts(ctx, []string{fakeUUID.String(), fakeUUID.String()}).Return(modelParts, nil)
+				inventoryClient.On("ValidateCompatibility", ctx, fakeUUID.String(), fakeUUID.String(), "", "").Return(nil)
+				inventoryClient.On("ReserveParts", ctx, []string{fakeUUID.String(), fakeUUID.String(), "", ""}).Return(nil)
 				repo.EXPECT().Create(ctx,
 					mock.MatchedBy(func(modelOrderCreate model.Order) bool {
 						return (modelOrderCreate.UUID != uuid.Nil &&
@@ -117,73 +118,73 @@ func TestCreate(t *testing.T) {
 				err:   nil,
 			},
 		},
-		// {
-		// 	name: "ошибка при создании заказа (неверный engine uuid)",
-		// 	args: args{input: input.CreateOrderInput{
-		// 		HullUUID:   fakeUUID,
-		// 		EngineUUID: uuid.Nil,
-		// 	}},
-		// 	setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
-		// 	},
-		// 	expected: expected{
-		// 		order: model.Order{},
-		// 		err:   errs.ErrInvalidUUID,
-		// 	},
-		// },
-		// {
-		// 	name: "ошибка при создании заказа (неверный hull uuid)",
-		// 	args: args{input: input.CreateOrderInput{
-		// 		HullUUID:   uuid.Nil,
-		// 		EngineUUID: fakeUUID,
-		// 	}},
-		// 	setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
-		// 	},
-		// 	expected: expected{
-		// 		order: model.Order{},
-		// 		err:   errs.ErrInvalidUUID,
-		// 	},
-		// },
-		// {
-		// 	name: "ошибка при создании заказа (неверный uuid)",
-		// 	args: args{input: input.CreateOrderInput{
-		// 		HullUUID:   uuid.Nil,
-		// 		EngineUUID: uuid.Nil,
-		// 	}},
-		// 	setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
-		// 	},
-		// 	expected: expected{
-		// 		order: model.Order{},
-		// 		err:   errs.ErrInvalidUUID,
-		// 	},
-		// },
-		// {
-		// 	name: "ошибка при создании заказа (деталь не найдена)",
-		// 	args: args{input: input.CreateOrderInput{
-		// 		HullUUID:   fakeUUID,
-		// 		EngineUUID: fakeUUID,
-		// 	}},
-		// 	setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
-		// 		inventoryClient.On("ListParts", ctx, []string{fakeUUID.String(), fakeUUID.String()}).Return([]model.Part{}, errs.ErrPartNotFound)
-		// 	},
-		// 	expected: expected{
-		// 		order: model.Order{},
-		// 		err:   errs.ErrPartNotFound,
-		// 	},
-		// },
-		// {
-		// 	name: "ошибка при создании заказа (деталь outOfStock)",
-		// 	args: args{input: input.CreateOrderInput{
-		// 		HullUUID:   fakeUUID,
-		// 		EngineUUID: fakeUUID,
-		// 	}},
-		// 	setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
-		// 		inventoryClient.On("ListParts", ctx, []string{fakeUUID.String(), fakeUUID.String()}).Return(modelPartsOutOfStock, nil)
-		// 	},
-		// 	expected: expected{
-		// 		order: model.Order{},
-		// 		err:   errs.ErrOutOfStock,
-		// 	},
-		// },
+		{
+			name: "ошибка при создании заказа (неверный engine uuid)",
+			args: args{input: input.CreateOrderInput{
+				HullUUID:   fakeUUID,
+				EngineUUID: uuid.Nil,
+			}},
+			setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
+			},
+			expected: expected{
+				order: model.Order{},
+				err:   errs.ErrInvalidUUID,
+			},
+		},
+		{
+			name: "ошибка при создании заказа (неверный hull uuid)",
+			args: args{input: input.CreateOrderInput{
+				HullUUID:   uuid.Nil,
+				EngineUUID: fakeUUID,
+			}},
+			setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
+			},
+			expected: expected{
+				order: model.Order{},
+				err:   errs.ErrInvalidUUID,
+			},
+		},
+		{
+			name: "ошибка при создании заказа (неверный uuid)",
+			args: args{input: input.CreateOrderInput{
+				HullUUID:   uuid.Nil,
+				EngineUUID: uuid.Nil,
+			}},
+			setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
+			},
+			expected: expected{
+				order: model.Order{},
+				err:   errs.ErrInvalidUUID,
+			},
+		},
+		{
+			name: "ошибка при создании заказа (деталь не найдена)",
+			args: args{input: input.CreateOrderInput{
+				HullUUID:   fakeUUID,
+				EngineUUID: fakeUUID,
+			}},
+			setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
+				inventoryClient.On("ListParts", ctx, []string{fakeUUID.String(), fakeUUID.String()}).Return([]model.Part{}, errs.ErrPartNotFound)
+			},
+			expected: expected{
+				order: model.Order{},
+				err:   errs.ErrPartNotFound,
+			},
+		},
+		{
+			name: "ошибка при создании заказа (деталь outOfStock)",
+			args: args{input: input.CreateOrderInput{
+				HullUUID:   fakeUUID,
+				EngineUUID: fakeUUID,
+			}},
+			setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
+				inventoryClient.On("ListParts", ctx, []string{fakeUUID.String(), fakeUUID.String()}).Return(modelPartsOutOfStock, nil)
+			},
+			expected: expected{
+				order: model.Order{},
+				err:   errs.ErrOutOfStock,
+			},
+		},
 	}
 
 	for _, tc := range tests {

@@ -81,7 +81,7 @@ func TestCancel(t *testing.T) {
 			args: args{orderUUID: fakeUUID},
 			setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
 				repo.EXPECT().Get(ctx, fakeUUID).Return(modelOrder, nil)
-				inventoryClient.EXPECT().ReleaseParts(ctx, []uuid.UUID{modelOrder.Items[0].PartUUID, modelOrder.Items[1].PartUUID}).Return(nil)
+				inventoryClient.EXPECT().ReleaseParts(ctx, []string{modelOrder.Items[0].PartUUID.String(), modelOrder.Items[1].PartUUID.String()}).Return(nil)
 				repo.EXPECT().Update(ctx, mock.MatchedBy(func(modelOrder model.Order) bool {
 					return (modelOrder.UUID == fakeUUID &&
 						modelOrder.TransactionUUID == nil &&
@@ -129,7 +129,7 @@ func TestCancel(t *testing.T) {
 			args: args{orderUUID: fakeUUID},
 			setupMock: func(repo *mocks.OrderRepository, inventoryClient *mocks.InventoryClient) {
 				repo.EXPECT().Get(ctx, fakeUUID).Return(modelOrder, nil)
-				inventoryClient.On("ReleaseParts", ctx, []uuid.UUID{modelOrder.Items[0].PartUUID, modelOrder.Items[1].PartUUID}).Return(nil)
+				inventoryClient.On("ReleaseParts", ctx, []string{modelOrder.Items[0].PartUUID.String(), modelOrder.Items[1].PartUUID.String()}).Return(nil)
 				repo.EXPECT().Update(ctx, mock.MatchedBy(func(modelOrder model.Order) bool {
 					return (modelOrder.UUID == fakeUUID &&
 						modelOrder.TransactionUUID == nil &&
